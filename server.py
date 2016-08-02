@@ -63,6 +63,7 @@ def movie_details(title):
     try:
         movie = Movie.query.filter_by(title=title).one()
     except NoResultFound:
+        flash("This movie doesn't exist yet.")
         return redirect('/movies')
 
     return render_template("movie_details.html", movie=movie, ratings=movie.ratings)
@@ -70,20 +71,40 @@ def movie_details(title):
 
 @app.route('/update_rating', methods=['POST'])
 def update_rating():
+    """Adding new or updating existing ratings in the db."""
 
     new_score = request.form.get('rating')
     title = request.form.get('title')
 
     if is_logged_in():
         user_id = db.session.query(User.user_id).filter_by(email=session['email']).one()
-        rating = db.session.query(Rating).filter_by(user_id=user_id).one()
-        if rating.score:
-            rating.score = new_score
-            db.session.commit()
-    else:
-        redirect("/register")
+            
+        try:
+            movie_id = db.session.query(Movie.movie_id).filter_by(title=title).one()
+        except NoResultFound:
+            flash("This movie doesn't exist yet.")
+            return redirect("/movies")
 
-    
+        rating = db.session.query(Rating).filter_by(user_id=user_id, movie_id=movie_id).first()
+
+        if rating:
+            rating.score = new_score
+        else:
+            new_rating = Rating(movie_id=movie_id,
+                                user_id=user_id,
+                                score=new_score)
+            db.session.add(new_rating)
+
+        db.session.commit()
+
+        flash("Your rating has been saved.")
+
+        redirect_url = "/movies/%s" % title
+        return redirect(redirect_url)
+    else:
+        flash("Please sign in to submit a rating.")
+        return redirect("/register")
+
 
 @app.route('/register', methods=['GET'])
 def register_form():
@@ -134,6 +155,7 @@ def process_registration():
 @app.route('/logout')
 def logout_user():
     """Logs user out and remove email from session."""
+
     if is_logged_in():
         del session['email']
         flash("You have been logged out.")
@@ -153,6 +175,8 @@ def is_logged_in():
 
 
 def get_user_profile_redirect_url(email):
+    """Generates the URL to redirect users to their profile page."""
+
     user_id = db.session.query(User.user_id).filter_by(email=email).one()
     redirect_url = "/users/%s" % user_id
 
