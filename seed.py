@@ -47,7 +47,7 @@ def load_movies():
 
         title_with_year = movie_data[1]
         title_pieces = title_with_year.split("(")
-        title = title_pieces[0]
+        title = title_pieces[0].rstrip()
 
 
         released_str = movie_data[2]

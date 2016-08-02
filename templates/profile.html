@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+{% block content %}
+
+    <h2>{{ user.email }}'s Profile</h2><br>
+    <ul>
+      <li><b>Age:</b> {{ user.age }}</li><br>
+      <li><b>Zipcode:</b> {{ user.zipcode }}</li><br>
+    </ul>
+    <br>
+
+    <h3>Ratings</h3>
+    {% if ratings %}
+    <ul>
+      {% for rating in ratings %}
+        <li>Movie: {{ rating.movie.title }}</li>
+        <li>Score: {{ rating.score }}</li><br>
+      {% endfor %}
+    </ul>
+    {% else %}
+      {{ user.email }} has not rated any movies.
+    {% endif %}
+ 
+{% endblock %}

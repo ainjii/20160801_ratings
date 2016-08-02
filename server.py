@@ -33,15 +33,70 @@ def user_list():
     users = User.query.all()
     return render_template("user_list.html", users=users)
 
+
+@app.route('/users/<user_id>')
+def user_profile(user_id):
+    """Displays user's details"""
+
+    try:
+        user = User.query.filter_by(user_id=user_id).one()
+    except NoResultFound:
+        return redirect('/register')
+
+    ratings = Rating.query.filter_by(user_id=user_id).all()
+
+    return render_template("profile.html", user=user, ratings=ratings)
+
+
+@app.route('/movies')
+def movie_list():
+    """Show list of movies."""
+    
+    movies = Movie.query.order_by('title').all()
+    
+    return render_template("movie_list.html", movies=movies)
+
+@app.route('/movies/<title>')
+def movie_details(title):
+    """Displays movie details."""
+
+    try:
+        movie = Movie.query.filter_by(title=title).one()
+    except NoResultFound:
+        return redirect('/movies')
+
+    return render_template("movie_details.html", movie=movie, ratings=movie.ratings)
+
+
+@app.route('/update_rating', methods=['POST'])
+def update_rating():
+
+    new_score = request.form.get('rating')
+    title = request.form.get('title')
+
+    if is_logged_in():
+        user_id = db.session.query(User.user_id).filter_by(email=session['email']).one()
+        rating = db.session.query(Rating).filter_by(user_id=user_id).one()
+        if rating.score:
+            rating.score = new_score
+            db.session.commit()
+    else:
+        redirect("/register")
+
+    
+
 @app.route('/register', methods=['GET'])
 def register_form():
     """Displays login/registration form."""
 
-    if session.get('email', None):
+    if is_logged_in():
         flash("You're already logged in.")
-        return redirect("/")
+        redirect_url = get_user_profile_redirect_url(session['email'])
+
+        return redirect(redirect_url)
     else:
         return render_template("register_form.html")
+
 
 @app.route('/process_registration', methods=["POST"])
 def process_registration():
@@ -56,12 +111,14 @@ def process_registration():
         if user.password == password:
             flash("You were successfully logged in.")
 
-            session['email'] = user_email
-            return redirect("/")
+            session['email'] = user.email
+            redirect_url = get_user_profile_redirect_url(user.email)
+
+            return redirect(redirect_url)
         else:
             flash("Incorrect password.")
 
-            return redirect("register")
+            return redirect("/register")
     except NoResultFound:
         # add user to db
         u = User(email=user_email, password=password)
@@ -70,19 +127,36 @@ def process_registration():
 
         flash("Account created.")
         session['email'] = u.email
+        redirect_url = get_user_profile_redirect_url(u.email)
 
-        return redirect("/")
+        return redirect(redirect_url)
 
 @app.route('/logout')
 def logout_user():
     """Logs user out and remove email from session."""
-    if 'email' in session:
+    if is_logged_in():
         del session['email']
         flash("You have been logged out.")
         return redirect("/")
     else:
         flash("You're not logged in.")
         return redirect("/register")
+
+
+def is_logged_in():
+    """Determines whether a user is logged in."""
+
+    if 'email' in session:
+        return True
+    else:
+        return False
+
+
+def get_user_profile_redirect_url(email):
+    user_id = db.session.query(User.user_id).filter_by(email=email).one()
+    redirect_url = "/users/%s" % user_id
+
+    return redirect_url
 
 
 if __name__ == "__main__":
