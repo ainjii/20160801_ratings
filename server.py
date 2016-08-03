@@ -19,6 +19,13 @@ app.secret_key = "ABC"
 # error.
 app.jinja_env.undefined = StrictUndefined
 
+STATUSES = {
+    'blue': 'info',
+    'red': 'danger',
+    'yellow': 'warning',
+    'green': 'success'
+}
+
 
 @app.route('/')
 def index():
@@ -63,7 +70,7 @@ def movie_details(title):
     try:
         movie = Movie.query.filter_by(title=title).one()
     except NoResultFound:
-        flash("This movie doesn't exist yet.")
+        flash_message("This movie doesn't exist yet.", STATUSES['red'])
         return redirect('/movies')
 
     return render_template("movie_details.html", movie=movie, ratings=movie.ratings)
@@ -82,7 +89,8 @@ def update_rating():
         try:
             movie_id = db.session.query(Movie.movie_id).filter_by(title=title).one()
         except NoResultFound:
-            flash("This movie doesn't exist yet.")
+
+            flash_message("This movie doesn't exist yet.", STATUSES['red'])
             return redirect("/movies")
 
         rating = db.session.query(Rating).filter_by(user_id=user_id, movie_id=movie_id).first()
@@ -97,12 +105,12 @@ def update_rating():
 
         db.session.commit()
 
-        flash("Your rating has been saved.")
+        flash_message("Your rating has been saved.", STATUSES['green'])
 
         redirect_url = "/movies/%s" % title
         return redirect(redirect_url)
     else:
-        flash("Please sign in to submit a rating.")
+        flash_message("Please sign in to submit a rating.", STATUSES['yellow'])
         return redirect("/register")
 
 
@@ -111,7 +119,8 @@ def register_form():
     """Displays login/registration form."""
 
     if is_logged_in():
-        flash("You're already logged in.")
+        flash_message("You're already logged in.", STATUSES['yellow'])
+
         redirect_url = get_user_profile_redirect_url(session['email'])
 
         return redirect(redirect_url)
@@ -130,14 +139,14 @@ def process_registration():
         # log user in
         user = db.session.query(User).filter_by(email=user_email).one()
         if user.password == password:
-            flash("You were successfully logged in.")
+            flash_message("You were successfully logged in.", STATUSES['green'])
 
             session['email'] = user.email
             redirect_url = get_user_profile_redirect_url(user.email)
 
             return redirect(redirect_url)
         else:
-            flash("Incorrect password.")
+            flash_message("Incorrect password.", STATUSES['red'])
 
             return redirect("/register")
     except NoResultFound:
@@ -146,7 +155,7 @@ def process_registration():
         db.session.add(u)
         db.session.commit()
 
-        flash("Account created.")
+        flash_message("Account created.", STATUSES['green'])
         session['email'] = u.email
         redirect_url = get_user_profile_redirect_url(u.email)
 
@@ -158,12 +167,15 @@ def logout_user():
 
     if is_logged_in():
         del session['email']
-        flash("You have been logged out.")
+        flash_message("You have been logged out.", STATUSES['green'])
         return redirect("/")
     else:
-        flash("You're not logged in.")
+        flash_message("You're not logged in.", STATUSES['red'])
         return redirect("/register")
 
+def flash_message(msg, status):
+    formatted_msg = '<div class="alert alert-%s" role="alert">%s</div>' % (status, msg)
+    flash(formatted_msg)
 
 def is_logged_in():
     """Determines whether a user is logged in."""
@@ -194,3 +206,4 @@ if __name__ == "__main__":
     DebugToolbarExtension(app)
 
     app.run()
+
