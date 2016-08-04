@@ -45,11 +45,11 @@ def index():
 
 
 @app.route('/users')
-def user_list():
+def users():
     """Show list of user."""
 
     users = User.query.all()
-    return render_template("user_list.html", users=users)
+    return render_template("users.html", users=users)
 
 
 @app.route('/users/<user_id>')
@@ -63,16 +63,16 @@ def user_profile(user_id):
 
     ratings = Rating.query.filter_by(user_id=user_id).all()
 
-    return render_template("profile.html", user=user, ratings=ratings)
+    return render_template("user_profile.html", user=user, ratings=ratings)
 
 
 @app.route('/movies')
-def movie_list():
+def movies():
     """Show list of movies."""
 
     movies = Movie.query.order_by('title').all()
 
-    return render_template("movie_list.html", movies=movies)
+    return render_template("movies.html", movies=movies)
 
 
 @app.route('/movies/<title>')
@@ -236,17 +236,16 @@ def update_rating():
 
 
 @app.route('/register', methods=['GET'])
-def register_form():
+def register():
     """Displays login/registration form."""
 
     if is_logged_in():
         flash_message("You're already logged in.", STATUSES['yellow'])
-
-        redirect_url = get_user_profile_redirect_url(session['email'])
+        redirect_url = "/users/%s" % session['user_id']
 
         return redirect(redirect_url)
     else:
-        return render_template("register_form.html")
+        return render_template("register.html")
 
 
 @app.route('/process_registration', methods=["POST"])
@@ -271,7 +270,7 @@ def log_user_in(email, password):
     if user.password == password:
         add_session_info(user)
         flash_message("You were successfully logged in.", STATUSES['green'])
-        redirect_url = get_user_profile_redirect_url(user.email)
+        redirect_url = "/users/%s" % session['user_id']
 
         return redirect(redirect_url)
     else:
@@ -289,7 +288,7 @@ def add_user_to_db(email, password):
 
     add_session_info(user)
     flash_message("Account created.", STATUSES['green'])
-    redirect_url = get_user_profile_redirect_url(user.email)
+    redirect_url = "/users/%s" % session['user_id']
 
     return redirect(redirect_url)
 
@@ -302,7 +301,7 @@ def add_session_info(user):
 
 
 @app.route('/logout')
-def logout_user():
+def logout():
     """Logs user out and remove email from session."""
 
     if is_logged_in():
@@ -335,15 +334,6 @@ def is_logged_in():
         return True
     else:
         return False
-
-
-def get_user_profile_redirect_url(email):
-    """Generates the URL to redirect users to their profile page."""
-
-    user_id = db.session.query(User.user_id).filter_by(email=email).one()
-    redirect_url = "/users/%s" % user_id
-
-    return redirect_url
 
 
 if __name__ == "__main__":
