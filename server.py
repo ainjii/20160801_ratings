@@ -257,49 +257,76 @@ def process_registration():
     password = request.form.get('password')
 
     try:
-        # log user in
-        user = db.session.query(User).filter_by(email=user_email).one()
-        if user.password == password:
-            flash_message("You were successfully logged in.", STATUSES['green'])
-
-            session['email'] = user.email
-            session['user_id'] = user.user_id
-            redirect_url = get_user_profile_redirect_url(user.email)
-
-            return redirect(redirect_url)
-        else:
-            flash_message("Incorrect password.", STATUSES['red'])
-
-            return redirect("/register")
+        response = log_user_in(user_email, password)
     except NoResultFound:
-        # add user to db
-        u = User(email=user_email, password=password)
-        db.session.add(u)
-        db.session.commit()
+        response = add_user_to_db(user_email, password)
 
-        flash_message("Account created.", STATUSES['green'])
-        session['email'] = u.email
-        session['user_id'] = u.user_id
-        redirect_url = get_user_profile_redirect_url(u.email)
+    return response
+
+
+def log_user_in(email, password):
+    """Tries to log user in."""
+
+    user = db.session.query(User).filter_by(email=email).one()
+    if user.password == password:
+        add_session_info(user)
+        flash_message("You were successfully logged in.", STATUSES['green'])
+        redirect_url = get_user_profile_redirect_url(user.email)
 
         return redirect(redirect_url)
+    else:
+        flash_message("Incorrect password.", STATUSES['red'])
+
+        return redirect("/register")
+
+
+def add_user_to_db(email, password):
+    """Adds a new user to the db."""
+
+    user = User(email=email, password=password)
+    db.session.add(user)
+    db.session.commit()
+
+    add_session_info(user)
+    flash_message("Account created.", STATUSES['green'])
+    redirect_url = get_user_profile_redirect_url(user.email)
+
+    return redirect(redirect_url)
+
+
+def add_session_info(user):
+    """Adds user email and user_id to session."""
+
+    session['email'] = user.email
+    session['user_id'] = user.user_id
+
 
 @app.route('/logout')
 def logout_user():
     """Logs user out and remove email from session."""
 
     if is_logged_in():
-        del session['email']
-        del session['user_id']
+        remove_session_info()
         flash_message("You have been logged out.", STATUSES['green'])
         return redirect("/")
     else:
         flash_message("You're not logged in.", STATUSES['red'])
         return redirect("/register")
 
+
+def remove_session_info():
+    """Removes user info from session."""
+
+    del session['email']
+    del session['user_id']
+
+
 def flash_message(msg, status):
+    """Creates a stylized flash message."""
+
     formatted_msg = '<div class="alert alert-%s" role="alert">%s</div>' % (status, msg)
     flash(formatted_msg)
+
 
 def is_logged_in():
     """Determines whether a user is logged in."""
