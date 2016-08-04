@@ -205,34 +205,38 @@ def update_rating():
     title = request.form.get('title')
 
     if is_logged_in():
-        user_id = db.session.query(User.user_id).filter_by(email=session['email']).one()
+        movie = get_movie_by_title(title)
 
-        try:
-            movie_id = db.session.query(Movie.movie_id).filter_by(title=title).one()
-        except NoResultFound:
+        if movie:
+            update_rating_in_db(movie.movie_id, new_score)
 
+            flash_message("Your rating has been saved.", STATUSES['green'])
+            redirect_url = "/movies/%s" % title
+
+            return redirect(redirect_url)
+        else:
             flash_message("This movie doesn't exist yet.", STATUSES['red'])
             return redirect("/movies")
-
-        rating = db.session.query(Rating).filter_by(user_id=user_id, movie_id=movie_id).first()
-
-        if rating:
-            rating.score = new_score
-        else:
-            new_rating = Rating(movie_id=movie_id,
-                                user_id=user_id,
-                                score=new_score)
-            db.session.add(new_rating)
-
-        db.session.commit()
-
-        flash_message("Your rating has been saved.", STATUSES['green'])
-
-        redirect_url = "/movies/%s" % title
-        return redirect(redirect_url)
     else:
         flash_message("Please sign in to submit a rating.", STATUSES['yellow'])
         return redirect("/register")
+
+
+def update_rating_in_db(movie_id, new_score):
+    """Update a user's rating if it exists, if not, create a new rating."""
+
+    rating = get_rating_by_movie_id(movie_id)
+    user_id = session['user_id']
+
+    if rating:
+        rating.score = new_score
+    else:
+        new_rating = Rating(movie_id=movie_id,
+                            user_id=user_id,
+                            score=new_score)
+        db.session.add(new_rating)
+
+    db.session.commit()
 
 
 @app.route('/register', methods=['GET'])
@@ -330,7 +334,7 @@ def flash_message(msg, status):
 def is_logged_in():
     """Determines whether a user is logged in."""
 
-    if 'email' in session:
+    if ('email' in session) and ('user_id' in session):
         return True
     else:
         return False

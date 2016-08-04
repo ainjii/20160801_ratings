@@ -57,9 +57,8 @@ class User(db.Model):
         other_ratings = User.generate_dict_of_ratings(other_user)
 
         for movie_id, my_score in my_ratings.iteritems():
-            other_rating = other_ratings.get(movie_id)
-            if other_rating:
-                pairs.append((my_score, other_rating))
+            if movie_id in other_ratings:
+                pairs.append((my_score, other_ratings[movie_id]))
 
         if pairs:
             return correlation.pearson(pairs)
