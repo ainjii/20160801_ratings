@@ -75,11 +75,11 @@ def movies():
     return render_template("movies.html", movies=movies)
 
 
-@app.route('/movies/<title>')
-def movie_details(title):
+@app.route('/movies/<movie_id>')
+def movie_details(movie_id):
     """Displays movie details."""
 
-    movie = get_movie_by_title(title)
+    movie = get_movie_by_id(movie_id)
     if not movie:
         flash_message("This movie doesn't exist yet.", STATUSES['red'])
         return redirect('/movies')
@@ -107,11 +107,11 @@ def movie_details(title):
                            beratement=beratement)
 
 
-def get_movie_by_title(title):
-    """Returns a movie, given a title."""
+def get_movie_by_id(movie_id):
+    """Returns a movie, given an id."""
 
     try:
-        movie = Movie.query.filter_by(title=title).one()
+        movie = Movie.query.filter_by(movie_id=movie_id).one()
         return movie
     except NoResultFound:
         return None
@@ -202,16 +202,16 @@ def update_rating():
     """Adding new or updating existing ratings in the db."""
 
     new_score = request.form.get('rating')
-    title = request.form.get('title')
+    movie_id = request.form.get('movieId')
 
     if is_logged_in():
-        movie = get_movie_by_title(title)
+        movie = get_movie_by_id(movie_id)
 
         if movie:
             update_rating_in_db(movie.movie_id, new_score)
 
             flash_message("Your rating has been saved.", STATUSES['green'])
-            redirect_url = "/movies/%s" % title
+            redirect_url = "/movies/%s" % movie_id
 
             return redirect(redirect_url)
         else:

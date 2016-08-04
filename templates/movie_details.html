@@ -26,7 +26,7 @@
     <form action="/update_rating" method="POST">
         <label for="field-rating">Rating: </label><br>
         <input type="number" name="rating" id="field-rating" /><br>
-        <input type="hidden" name="title" value="{{ movie.title }}" /><br>
+        <input type="hidden" name="movieId" value="{{ movie.movie_id }}" /><br>
         <button action="submit">Submit</button>
     </form>
 {% endblock %}
