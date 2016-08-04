@@ -191,7 +191,9 @@ def fetch_insult(effective_rating, eye_rating):
 def safe_round(val):
     """Round a number, if it exists. Else, return None."""
 
-    if val:
+    number_types = (float, int, complex, long)
+
+    if isinstance(val, number_types):
         return round(val)
     else:
         return None
