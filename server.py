@@ -76,21 +76,19 @@ def movie_list():
 def movie_details(title):
     """Displays movie details."""
 
-    try:
-        movie = Movie.query.filter_by(title=title).one()
-    except NoResultFound:
+    movie = get_movie_by_title(title)
+    
+    if not movie:
         flash_message("This movie doesn't exist yet.", STATUSES['red'])
         return redirect('/movies')
 
-    user_id = session['user_id']
+
+    user_rating = None
 
     if is_logged_in():
-        user_rating = Rating.query.filter_by(movie_id=movie.movie_id, user_id=user_id).first()
-    else:
-        user_rating = None
+        user_rating = get_rating_by_movie_id(movie.movie_id)
 
-    rating_score = [rating.score for rating in movie.ratings]
-    avg_rating = round(float(sum(rating_score)) / len(rating_score))
+    get_average_rating_for_movie(movie)
 
     prediction = None
 
@@ -140,6 +138,36 @@ def movie_details(title):
     eye_rating=eye_rating,
     beratement=beratement)
 
+
+def get_movie_by_title(title):
+    """Returns a movie, given a title."""
+    
+    try:
+        movie = Movie.query.filter_by(title=title).one()
+        return movie
+    except NoResultFound:
+        return None
+
+
+def get_rating_by_movie_id(movie_id):
+    """Returns a Movie, given a movie_id."""
+
+    try:
+        user_id = session['user_id']
+        rating = Rating.query.filter_by(movie_id=movie_id, user_id=user_id).first()
+        return rating
+    except NoResultFound:
+        return None
+
+
+def get_average_rating_for_movie(movie):
+    """Returns the average user rating for a particular movie."""
+
+    rating_score = [rating.score for rating in movie.ratings]
+    avg_rating = round(float(sum(rating_score)) / len(rating_score))
+
+    return avg_rating
+    
 
 @app.route('/update_rating', methods=['POST'])
 def update_rating():
