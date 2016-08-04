@@ -30,6 +30,55 @@ class User(db.Model):
     zipcode = db.Column(db.String(15), nullable=True)
 
 
+    def get_predicted_rating(self, movie_id):
+        """Predict a user's rating for a movie based on other users' ratings."""
+
+        movie = db.session.query(Movie).filter_by(movie_id=movie_id).one()
+        ratings = movie.ratings
+        user_sim_and_score_pairs = [(self.similarity(rating.user), rating) 
+                                    for rating in ratings]
+
+        user_sim_and_score_pairs.sort(reverse=True)
+        similarity, rating = user_sim_and_score_pairs[0]
+
+        numerator = sum([rating.score * sim for sim, rating in user_sim_and_score_pairs])
+        denominator = sum([sim for sim, r in user_sim_and_score_pairs])
+
+        if denominator != 0:
+            return numerator/denominator
+        else:
+            return None
+
+    def similarity(self, other_user):
+        """Determine how similar two users' tastes in movies are."""
+
+        pairs = []
+        my_ratings = User.generate_dict_of_ratings(self)
+        other_ratings = User.generate_dict_of_ratings(other_user)
+
+        for movie_id, my_score in my_ratings.iteritems():
+            other_rating = other_ratings.get(movie_id)
+            if other_rating:
+                pairs.append((my_score, other_rating))
+
+        if pairs:
+            return correlation.pearson(pairs)
+        else:
+            return 0
+
+
+    @staticmethod
+    def generate_dict_of_ratings(user):
+        """Generate a dictionary of movie_id:rating pairs."""
+
+        user_ratings = {}
+
+        for rating in user.ratings:
+            user_ratings[rating.movie_id] = rating.score
+
+        return user_ratings
+
+
 class Movie(db.Model):
     """Movies to be rated."""
 

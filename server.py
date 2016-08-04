@@ -26,6 +26,15 @@ STATUSES = {
     'green': 'success'
 }
 
+BERATEMENT_MESSAGES = [
+        "I suppose you don't have such bad taste after all.",
+        "I regret every decision that I've ever made that has " +
+            "brought me to listen to your opinion.",
+        "Words fail me, as your taste in movies has clearly " +
+            "failed you.",
+        "That movie is great. For a clown to watch. Idiot.",
+        "Words cannot express the awfulness of your taste."
+    ]
 
 @app.route('/')
 def index():
@@ -73,7 +82,63 @@ def movie_details(title):
         flash_message("This movie doesn't exist yet.", STATUSES['red'])
         return redirect('/movies')
 
-    return render_template("movie_details.html", movie=movie, ratings=movie.ratings)
+    user_id = session['user_id']
+
+    if is_logged_in():
+        user_rating = Rating.query.filter_by(movie_id=movie.movie_id, user_id=user_id).first()
+    else:
+        user_rating = None
+
+    rating_score = [rating.score for rating in movie.ratings]
+    avg_rating = round(float(sum(rating_score)) / len(rating_score))
+
+    prediction = None
+
+    if (not user_rating) and user_id:
+        user = User.query.get(user_id)
+        
+        if user:
+            prediction = user.get_predicted_rating(movie.movie_id)   
+
+    if prediction:
+        prediction = round(prediction)
+        effective_rating = prediction
+
+    elif user_rating:
+        effective_rating = user_rating.score
+
+    else: 
+        effective_rating = None
+
+    the_eye = User.query.filter_by(email='the-eye@of-judgment.com').one()
+    eye_rating = Rating.query.filter_by(user_id=the_eye.user_id, movie_id=movie.movie_id).first()
+
+    if eye_rating is None:
+        eye_rating = the_eye.get_predicted_rating(movie.movie_id)
+        if eye_rating:
+            eye_rating = round(eye_rating)
+    else:
+        eye_rating = round(eye_rating.score)
+
+    if eye_rating and effective_rating:
+        difference = abs(eye_rating - effective_rating)
+
+    else:
+        difference = None
+
+    if difference is not None:
+        beratement = BERATEMENT_MESSAGES[int(difference)]
+
+    else:
+        beratement = None
+
+    return render_template("movie_details.html",
+    movie=movie, 
+    ratings=movie.ratings, 
+    average=avg_rating,
+    prediction=prediction,
+    eye_rating=eye_rating,
+    beratement=beratement)
 
 
 @app.route('/update_rating', methods=['POST'])
@@ -142,6 +207,7 @@ def process_registration():
             flash_message("You were successfully logged in.", STATUSES['green'])
 
             session['email'] = user.email
+            session['user_id'] = user.user_id
             redirect_url = get_user_profile_redirect_url(user.email)
 
             return redirect(redirect_url)
@@ -157,6 +223,7 @@ def process_registration():
 
         flash_message("Account created.", STATUSES['green'])
         session['email'] = u.email
+        session['user_id'] = u.user_id
         redirect_url = get_user_profile_redirect_url(u.email)
 
         return redirect(redirect_url)
@@ -167,6 +234,7 @@ def logout_user():
 
     if is_logged_in():
         del session['email']
+        del session['user_id']
         flash_message("You have been logged out.", STATUSES['green'])
         return redirect("/")
     else:
