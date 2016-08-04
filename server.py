@@ -2,7 +2,7 @@
 
 from jinja2 import StrictUndefined
 
-from flask import Flask, render_template, redirect, url_for, request, flash, session 
+from flask import Flask, render_template, redirect, request, flash, session
 from flask_debugtoolbar import DebugToolbarExtension
 
 from model import connect_to_db, db, User, Rating, Movie
@@ -36,11 +36,13 @@ BERATEMENT_MESSAGES = [
         "Words cannot express the awfulness of your taste."
     ]
 
+
 @app.route('/')
 def index():
     """Homepage."""
 
     return render_template("homepage.html")
+
 
 @app.route('/users')
 def user_list():
@@ -67,81 +69,47 @@ def user_profile(user_id):
 @app.route('/movies')
 def movie_list():
     """Show list of movies."""
-    
+
     movies = Movie.query.order_by('title').all()
-    
+
     return render_template("movie_list.html", movies=movies)
+
 
 @app.route('/movies/<title>')
 def movie_details(title):
     """Displays movie details."""
 
     movie = get_movie_by_title(title)
-    
     if not movie:
         flash_message("This movie doesn't exist yet.", STATUSES['red'])
         return redirect('/movies')
 
-
     user_rating = None
+    prediction = None
 
     if is_logged_in():
         user_rating = get_rating_by_movie_id(movie.movie_id)
 
-    get_average_rating_for_movie(movie)
+        if not user_rating:
+            prediction = get_prediction_of_user_rating(movie)
 
-    prediction = None
-
-    if (not user_rating) and user_id:
-        user = User.query.get(user_id)
-        
-        if user:
-            prediction = user.get_predicted_rating(movie.movie_id)   
-
-    if prediction:
-        prediction = round(prediction)
-        effective_rating = prediction
-
-    elif user_rating:
-        effective_rating = user_rating.score
-
-    else: 
-        effective_rating = None
-
-    the_eye = User.query.filter_by(email='the-eye@of-judgment.com').one()
-    eye_rating = Rating.query.filter_by(user_id=the_eye.user_id, movie_id=movie.movie_id).first()
-
-    if eye_rating is None:
-        eye_rating = the_eye.get_predicted_rating(movie.movie_id)
-        if eye_rating:
-            eye_rating = round(eye_rating)
-    else:
-        eye_rating = round(eye_rating.score)
-
-    if eye_rating and effective_rating:
-        difference = abs(eye_rating - effective_rating)
-
-    else:
-        difference = None
-
-    if difference is not None:
-        beratement = BERATEMENT_MESSAGES[int(difference)]
-
-    else:
-        beratement = None
+    avg_rating = get_average_rating_for_movie(movie)
+    effective_rating = get_effective_rating(prediction, user_rating)
+    eye_rating = get_eye_rating(movie)
+    beratement = fetch_insult(effective_rating, eye_rating)
 
     return render_template("movie_details.html",
-    movie=movie, 
-    ratings=movie.ratings, 
-    average=avg_rating,
-    prediction=prediction,
-    eye_rating=eye_rating,
-    beratement=beratement)
+                           movie=movie,
+                           ratings=movie.ratings,
+                           prediction=prediction,
+                           average=avg_rating,
+                           eye_rating=eye_rating,
+                           beratement=beratement)
 
 
 def get_movie_by_title(title):
     """Returns a movie, given a title."""
-    
+
     try:
         movie = Movie.query.filter_by(title=title).one()
         return movie
@@ -164,10 +132,70 @@ def get_average_rating_for_movie(movie):
     """Returns the average user rating for a particular movie."""
 
     rating_score = [rating.score for rating in movie.ratings]
-    avg_rating = round(float(sum(rating_score)) / len(rating_score))
+    avg_rating = float(sum(rating_score)) / len(rating_score)
 
-    return avg_rating
-    
+    return safe_round(avg_rating)
+
+
+def get_prediction_of_user_rating(movie):
+    """Returns what a user will probably rate a movie they have not yet seen."""
+
+    prediction = None
+
+    user = User.query.get(session['user_id'])
+    prediction = user.get_predicted_rating(movie.movie_id)
+
+    return safe_round(prediction)
+
+
+def get_effective_rating(prediction, user_rating):
+    """Returns a value that represents the user's [likely] opinion of a movie."""
+
+    if prediction:
+        return prediction
+    elif user_rating:
+        return user_rating.score
+    else:
+        return None
+
+
+def get_eye_rating(movie):
+    """Returns a value that represents the eye's [likely] opinion of a movie."""
+
+    the_eye = User.query.filter_by(email='the-eye@of-judgment.com').one()
+    eye_rating = Rating.query.filter_by(user_id=the_eye.user_id, movie_id=movie.movie_id).first()
+
+    if eye_rating is None:
+        eye_rating = the_eye.get_predicted_rating(movie.movie_id)
+    else:
+        eye_rating = eye_rating.score
+
+    return safe_round(eye_rating)
+
+
+def fetch_insult(effective_rating, eye_rating):
+    """Return the appropriate beratement based on differences in eye rating and user rating."""
+
+    difference = None
+    beratement = None
+
+    if eye_rating and effective_rating:
+        difference = abs(eye_rating - effective_rating)
+
+    if difference:
+        beratement = BERATEMENT_MESSAGES[int(difference)]
+
+    return beratement
+
+
+def safe_round(val):
+    """Round a number, if it exists. Else, return None."""
+
+    if val:
+        return round(val)
+    else:
+        return None
+
 
 @app.route('/update_rating', methods=['POST'])
 def update_rating():
@@ -178,7 +206,7 @@ def update_rating():
 
     if is_logged_in():
         user_id = db.session.query(User.user_id).filter_by(email=session['email']).one()
-            
+
         try:
             movie_id = db.session.query(Movie.movie_id).filter_by(title=title).one()
         except NoResultFound:
