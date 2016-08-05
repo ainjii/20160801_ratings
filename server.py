@@ -119,7 +119,7 @@ def get_movie_by_id(movie_id):
     """Returns a movie, given an id."""
 
     try:
-        movie = Movie.query.filter_by(movie_id=movie_id).one()
+        movie = Movie.query.get(movie_id)
         return movie
     except NoResultFound:
         return None
@@ -197,7 +197,15 @@ def fetch_insult(effective_rating, eye_rating):
 
 
 def safe_round(val):
-    """Round a number, if it exists. Else, return None."""
+    """Round a number, if it exists. Else, return None.
+
+    >>> safe_round(5.0)
+    5.0
+
+    >>> safe_round(6.789)
+    7.0
+
+    """
 
     number_types = (float, int, complex, long)
 
