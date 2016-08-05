@@ -61,9 +61,7 @@ def user_profile(user_id):
     except NoResultFound:
         return redirect('/register')
 
-    ratings = Rating.query.filter_by(user_id=user_id).all()
-
-    return render_template("user_profile.html", user=user, ratings=ratings)
+    return render_template("user_profile.html", user=user)
 
 
 @app.route('/movies')

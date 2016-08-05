@@ -9,9 +9,9 @@
     <br>
 
     <h3>Ratings</h3>
-    {% if ratings %}
+    {% if user.ratings %}
     <ul>
-      {% for rating in ratings %}
+      {% for rating in user.ratings %}
         <li>Movie: {{ rating.movie.title }}</li>
         <li>Score: {{ rating.score }}</li><br>
       {% endfor %}
