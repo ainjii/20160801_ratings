@@ -19,7 +19,7 @@ app.secret_key = "ABC"
 # error.
 app.jinja_env.undefined = StrictUndefined
 
-STATUSES = {
+ALERT_TYPES = {
     'blue': 'info',
     'red': 'danger',
     'yellow': 'warning',
@@ -56,12 +56,22 @@ def users():
 def user_profile(user_id):
     """Displays user's details"""
 
-    try:
-        user = User.query.filter_by(user_id=user_id).one()
-    except NoResultFound:
-        return redirect('/register')
+    user = get_user_by_id(user_id)
 
-    return render_template("user_profile.html", user=user)
+    if user:
+        return render_template("user_profile.html", user=user)
+    else:
+        flash_message('That user does not exist.', ALERT_TYPES['red'])
+        return redirect('/')
+
+
+def get_user_by_id(user_id):
+    """Return a user, given a user_id."""
+
+    try:
+        return User.query.get(user_id)
+    except NoResultFound:
+        return None
 
 
 @app.route('/movies')
@@ -79,7 +89,7 @@ def movie_details(movie_id):
 
     movie = get_movie_by_id(movie_id)
     if not movie:
-        flash_message("This movie doesn't exist yet.", STATUSES['red'])
+        flash_message("This movie doesn't exist yet.", ALERT_TYPES['red'])
         return redirect('/movies')
 
     user_rating = None
@@ -140,7 +150,7 @@ def get_prediction_of_user_rating(movie):
 
     prediction = None
 
-    user = User.query.get(session['user_id'])
+    user = get_user_by_id(session['user_id'])
     prediction = user.get_predicted_rating(movie.movie_id)
 
     return safe_round(prediction)
@@ -210,15 +220,15 @@ def update_rating():
         if movie:
             update_rating_in_db(movie.movie_id, new_score)
 
-            flash_message("Your rating has been saved.", STATUSES['green'])
+            flash_message("Your rating has been saved.", ALERT_TYPES['green'])
             redirect_url = "/movies/%s" % movie_id
 
             return redirect(redirect_url)
         else:
-            flash_message("This movie doesn't exist yet.", STATUSES['red'])
+            flash_message("This movie doesn't exist yet.", ALERT_TYPES['red'])
             return redirect("/movies")
     else:
-        flash_message("Please sign in to submit a rating.", STATUSES['yellow'])
+        flash_message("Please sign in to submit a rating.", ALERT_TYPES['yellow'])
         return redirect("/register")
 
 
@@ -244,7 +254,7 @@ def register():
     """Displays login/registration form."""
 
     if is_logged_in():
-        flash_message("You're already logged in.", STATUSES['yellow'])
+        flash_message("You're already logged in.", ALERT_TYPES['yellow'])
         redirect_url = "/users/%s" % session['user_id']
 
         return redirect(redirect_url)
@@ -273,12 +283,12 @@ def log_user_in(email, password):
     user = db.session.query(User).filter_by(email=email).one()
     if user.password == password:
         add_session_info(user)
-        flash_message("You were successfully logged in.", STATUSES['green'])
+        flash_message("You were successfully logged in.", ALERT_TYPES['green'])
         redirect_url = "/users/%s" % session['user_id']
 
         return redirect(redirect_url)
     else:
-        flash_message("Incorrect password.", STATUSES['red'])
+        flash_message("Incorrect password.", ALERT_TYPES['red'])
 
         return redirect("/register")
 
@@ -291,7 +301,7 @@ def add_user_to_db(email, password):
     db.session.commit()
 
     add_session_info(user)
-    flash_message("Account created.", STATUSES['green'])
+    flash_message("Account created.", ALERT_TYPES['green'])
     redirect_url = "/users/%s" % session['user_id']
 
     return redirect(redirect_url)
@@ -310,10 +320,10 @@ def logout():
 
     if is_logged_in():
         remove_session_info()
-        flash_message("You have been logged out.", STATUSES['green'])
+        flash_message("You have been logged out.", ALERT_TYPES['green'])
         return redirect("/")
     else:
-        flash_message("You're not logged in.", STATUSES['red'])
+        flash_message("You're not logged in.", ALERT_TYPES['red'])
         return redirect("/register")
 
 
